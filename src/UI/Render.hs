@@ -115,11 +115,21 @@ renderArrow (x1, y1) (x2, y2) col =
 
 -- Render een dubbele pijl (begin en einde)
 renderBiDirectionalArrow :: Position -> Position -> Color -> Picture
-renderBiDirectionalArrow start end col =
-    Pictures
-      [ renderArrow start end col                -- pijl aan het einde
-      , renderArrow end start col                -- pijl aan het begin (draai lijn om)
-      ]
+renderBiDirectionalArrow (x1, y1) (x2, y2) col =
+    let dx = x2 - x1
+        dy = y2 - y1
+        
+        -- Arrow at 1/3 of the line (pointing to x2, y2)
+        tipX1 = x1 + 0.33 * dx
+        tipY1 = y1 + 0.33 * dy
+        arrow1 = renderArrow (x1, y1) (tipX1, tipY1) col
+        
+        -- Arrow at 2/3 of the line (pointing to x1, y1)
+        tipX2 = x1 + 0.67 * dx
+        tipY2 = y1 + 0.67 * dy
+        arrow2 = renderArrow (x2, y2) (tipX2, tipY2) col
+        
+    in Pictures [arrow1, arrow2]
 
 -- Render alle planeten
 renderPlanets :: GameState -> Picture
@@ -325,7 +335,7 @@ renderRoutesList gs routes panelX startY =
                     then Translate (panelX + 100) (yPos + 12) $
                          Scale (smallTextScale * 0.8) (smallTextScale * 0.8) $
                          Color (makeColor 1.0 0.4 0.2 1.0) $
-                         Text "⚠"
+                         Text "!"
                     else Blank
                 
             in Pictures [box, nameText, fuelInfo, timeInfo, hazardWarning]
