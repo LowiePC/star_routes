@@ -87,7 +87,7 @@ renderRouteLine (x1, y1) (x2, y2) col dir =
         arrow = case dir of
             Forward -> renderArrow (x1, y1) (x2, y2) col
             Backward -> renderArrow (x2, y2) (x1, y1) col
-            BiDirectional -> Blank
+            BiDirectional -> renderBiDirectionalArrow (x1, y1) (x2, y2) col
     in Pictures [baseLine, arrow]
 
 -- Render een pijl op het einde van een lijn
@@ -104,14 +104,22 @@ renderArrow (x1, y1) (x2, y2) col =
         py = ndx
         -- Arrow size
         arrowSize = 10
-        -- Arrow tip position (80% along the line)
-        tipX = x1 + 0.8 * dx
-        tipY = y1 + 0.8 * dy
+        -- Arrow tip position (50% along the line)
+        tipX = x1 + 0.5 * dx
+        tipY = y1 + 0.5 * dy
         -- Arrow points
         p1 = (tipX - arrowSize * ndx + arrowSize * 0.5 * px, tipY - arrowSize * ndy + arrowSize * 0.5 * py)
         p2 = (tipX, tipY)
         p3 = (tipX - arrowSize * ndx - arrowSize * 0.5 * px, tipY - arrowSize * ndy - arrowSize * 0.5 * py)
     in Color col $ Line [p1, p2, p3]
+
+-- Render een dubbele pijl (begin en einde)
+renderBiDirectionalArrow :: Position -> Position -> Color -> Picture
+renderBiDirectionalArrow start end col =
+    Pictures
+      [ renderArrow start end col                -- pijl aan het einde
+      , renderArrow end start col                -- pijl aan het begin (draai lijn om)
+      ]
 
 -- Render alle planeten
 renderPlanets :: GameState -> Picture

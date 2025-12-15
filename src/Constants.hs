@@ -85,14 +85,14 @@ currentPlanetColor :: Color
 currentPlanetColor = makeColor 0.8 0.8 0.2 1.0  -- Geel voor huidige planeet
 
 targetPlanetColor :: Color
-targetPlanetColor = makeColor 0.2 0.8 0.2 1.0  -- Groen voor doel
+targetPlanetColor = makeColor 0.2 0.8 0.3 1.0   -- Groen voor doel
 
 -- Planet effect kleuren
 fuelPlanetColor :: Color
 fuelPlanetColor = makeColor 0.9 0.7 0.2 1.0  -- Geel/oranje voor fuel
 
 repairPlanetColor :: Color
-repairPlanetColor = makeColor 0.2 0.8 0.3 1.0  -- Groen voor repair
+repairPlanetColor = makeColor 0.1 0.2 1.0 1.0  -- Blauw voor repair
 
 -- Route kleuren
 routeColor :: Color
