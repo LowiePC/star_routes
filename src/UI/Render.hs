@@ -49,7 +49,7 @@ renderHazard hazard =
         circle = Color col $ ThickCircle (radius - 2) 4
         
         -- Hazard naam (klein, onder de cirkel)
-        nameText = Translate 0 (-(radius + 15)) $
+        nameText = Translate 0 (radius + 8) $
                   Scale (smallTextScale * 0.8) (smallTextScale * 0.8) $
                   Color textColor $
                   Text name
