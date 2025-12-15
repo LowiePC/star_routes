@@ -76,16 +76,20 @@ emptyGalaxy :: Galaxy
 emptyGalaxy = Galaxy [] [] [] []    
 
 data GameState = GameState
-    { gameGalaxy        :: Galaxy
-    , gameShip          :: Ship
-    , gameCurrentPlanet :: String
-    , gameTargetPlanet  :: String
-    , gameMissionTime   :: Int
-    , gameSelectedRoute :: Maybe Route
-    , gameTraveling     :: Bool
-    , gameTravelProgress :: Float  -- 0.0 tot 1.0
-    , gameRng           :: StdGen
-    , gameStatus        :: GameStatus
+    { gameGalaxy            :: Galaxy
+    , gameShip              :: Ship
+    , gameCurrentPlanet     :: String
+    , gameTargetPlanet      :: String
+    , gameMissionTime       :: Int
+    , gameSelectedRoute     :: Maybe Route
+    , gameTraveling         :: Bool
+    , gameTravelProgress    :: Float  -- 0.0 tot 1.0
+    , gamePlannedFuelCost   :: Maybe Int  -- Vooraf bepaalde fuel cost
+    , gameTravelStartFuel   :: Maybe Int  -- Fuel bij start van reis
+    , gameTravelStartTime   :: Maybe Int  -- Tijd bij start van reis
+    , gameHazardsApplied    :: [String]   -- Hazards die al zijn toegepast tijdens deze reis
+    , gameRng               :: StdGen
+    , gameStatus            :: GameStatus
     } deriving (Show)
 
 data GameStatus

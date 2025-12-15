@@ -29,6 +29,10 @@ initGameState galaxy mission rng = do
         , gameSelectedRoute = Nothing
         , gameTraveling = False
         , gameTravelProgress = 0.0
+        , gamePlannedFuelCost = Nothing
+        , gameTravelStartFuel = Nothing
+        , gameTravelStartTime = Nothing
+        , gameHazardsApplied = []
         , gameRng = rng
         , gameStatus = Playing
         }
@@ -57,20 +61,29 @@ getRouteDestination current route
 
 canAffordRoute :: Ship -> Route -> Bool
 canAffordRoute ship route = 
-    shipFuel ship >= fst (routeFuelRange route ) && 
+    shipFuel ship >= fst (routeFuelRange route) && 
     shipTime ship >= routeTime route
 
 -- =============================================================================
 -- ======= Travel Logica =======================================================
 -- =============================================================================
 
--- Start het reizen over een route
+-- Start het reizen over een route - bepaal fuel cost vooraf
 startTravel :: Route -> GameState -> GameState
-startTravel route gs = gs
-    { gameSelectedRoute = Just route
-    , gameTraveling = True
-    , gameTravelProgress = 0.0
-    }
+startTravel route gs =
+    let (minFuel, maxFuel) = routeFuelRange route
+        (fuelCost, newRng) = randomR (minFuel, maxFuel) (gameRng gs)
+        currentShip = gameShip gs
+    in gs
+        { gameSelectedRoute = Just route
+        , gameTraveling = True
+        , gameTravelProgress = 0.0
+        , gamePlannedFuelCost = Just fuelCost
+        , gameTravelStartFuel = Just (shipFuel currentShip)
+        , gameTravelStartTime = Just (shipTime currentShip)
+        , gameHazardsApplied = []
+        , gameRng = newRng
+        }
 
 -- Update de reis voortgang (delta is de tijd sinds vorige frame in seconden)
 updateTravel :: Float -> GameState -> GameState
@@ -93,49 +106,107 @@ updateTravel delta gs
                     (Just from, Just to) -> interpolatePosition (planetPos from) (planetPos to) newProgress
                     _ -> shipPos (gameShip gs)
                 
+                -- Update fuel en tijd real-time
                 ship = gameShip gs
-                newShip = ship { shipPos = newShipPos }
                 
-            in if newProgress >= 1.0
-               then completeTravel route gs { gameShip = newShip, gameTravelProgress = newProgress }
-               else gs { gameShip = newShip, gameTravelProgress = newProgress }
+                -- Bereken hoeveel fuel en tijd we moeten aftrekken
+                Just startFuel = gameTravelStartFuel gs
+                Just startTime = gameTravelStartTime gs
+                Just plannedFuel = gamePlannedFuelCost gs
+                
+                targetFuel = startFuel - floor (fromIntegral plannedFuel * newProgress)
+                targetTime = startTime - floor (fromIntegral (routeTime route) * newProgress)
+                
+                ship1 = ship 
+                    { shipPos = newShipPos
+                    , shipFuel = targetFuel
+                    , shipTime = targetTime
+                    }
+                
+                -- Check hazards op huidige positie en pas toe indien nodig
+                (ship2, newHazardsApplied, newRng) = 
+                    applyHazardsAtProgress gs route ship1 newProgress (gameHazardsApplied gs) (gameRng gs)
+                
+                -- Update game state
+                gs1 = gs 
+                    { gameShip = ship2
+                    , gameTravelProgress = newProgress
+                    , gameHazardsApplied = newHazardsApplied
+                    , gameRng = newRng
+                    }
+                
+                -- Check game status tijdens reizen
+                gs2 = checkGameStatus gs1
+                
+            in if newProgress >= 1.0 && gameStatus gs2 == Playing
+               then completeTravel route gs2
+               else gs2
 
 -- Interpoleer tussen twee posities
 interpolatePosition :: Position -> Position -> Float -> Position
 interpolatePosition (x1, y1) (x2, y2) t =
     (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
 
--- Voltooi de reis en pas alle effecten toe
+-- Pas hazards toe op bepaalde progress punten
+applyHazardsAtProgress :: GameState -> Route -> Ship -> Float -> [String] -> StdGen -> (Ship, [String], StdGen)
+applyHazardsAtProgress gs route ship progress appliedHazards rng =
+    let fromPlanet = find (\p -> planetName p == routeFrom route) (galaxyPlanets $ gameGalaxy gs)
+        toPlanet = case getRouteDestination (gameCurrentPlanet gs) route of
+            Just dest -> find (\p -> planetName p == dest) (galaxyPlanets $ gameGalaxy gs)
+            Nothing -> Nothing
+        
+        hazardsOnRoute = case (fromPlanet, toPlanet) of
+            (Just from, Just to) -> findHazardsOnRoute (planetPos from) (planetPos to) (galaxyHazards $ gameGalaxy gs)
+            _ -> []
+        
+        -- Vind hazards die we zijn gepasseerd maar nog niet hebben toegepast
+        (x1, y1) = case fromPlanet of Just p -> planetPos p; Nothing -> (0, 0)
+        (x2, y2) = case toPlanet of Just p -> planetPos p; Nothing -> (0, 0)
+        currentPos = interpolatePosition (x1, y1) (x2, y2) progress
+        
+        -- Check welke hazards we zijn gepasseerd
+        hazardsToApply = filter (\h -> 
+            not (hazardName h `elem` appliedHazards) &&
+            hasPassedHazard (x1, y1) currentPos h) hazardsOnRoute
+        
+    in foldl (\(s, applied, r) h -> 
+            let (newShip, newRng) = applyHazardEffect h s r
+                newApplied = hazardName h : applied
+            in (newShip, newApplied, newRng)
+        ) (ship, appliedHazards, rng) hazardsToApply
+
+-- Check of we een hazard zijn gepasseerd
+hasPassedHazard :: Position -> Position -> Hazard -> Bool
+hasPassedHazard start current hazard =
+    let (hx, hy) = hazardPos hazard
+        (sx, sy) = start
+        (cx, cy) = current
+        -- Check of de huidige positie dichtbij genoeg is bij de hazard
+        distToCurrent = sqrt ((cx - hx) * (cx - hx) + (cy - hy) * (cy - hy))
+        radius = fromIntegral (hazardRadius hazard)
+    in distToCurrent <= radius
+
+-- Voltooi de reis
 completeTravel :: Route -> GameState -> GameState
 completeTravel route gs = case getRouteDestination (gameCurrentPlanet gs) route of
     Nothing -> gs
     Just destination ->
-        let -- Bereken brandstofverbruik
-            (minFuel, maxFuel) = routeFuelRange route
-            (fuelCost, newRng) = randomR (minFuel, maxFuel) (gameRng gs)
-            
-            -- Pas brandstofverbruik toe
-            ship1 = (gameShip gs) { shipFuel = shipFuel (gameShip gs) - fuelCost }
-            
-            -- Pas tijd toe
-            ship2 = ship1 { shipTime = shipTime ship1 - routeTime route }
-            
-            -- Vind de doelplaneet
+        let -- Vind de doelplaneet
             destPlanet = find (\p -> planetName p == destination) (galaxyPlanets $ gameGalaxy gs)
-            destPos = maybe (shipPos ship2) planetPos destPlanet
-            ship3 = ship2 { shipPos = destPos }
+            destPos = maybe (shipPos $ gameShip gs) planetPos destPlanet
+            ship = (gameShip gs) { shipPos = destPos }
             
-            -- Pas hazard effecten toe onderweg
-            (ship4, rng2) = applyHazardsOnRoute gs route ship3 newRng
-            
-            -- Update state met nieuwe positie en ship
+            -- Update state met nieuwe positie
             gs1 = gs
-                { gameShip = ship4
+                { gameShip = ship
                 , gameCurrentPlanet = destination
                 , gameTraveling = False
                 , gameTravelProgress = 0.0
                 , gameSelectedRoute = Nothing
-                , gameRng = rng2
+                , gamePlannedFuelCost = Nothing
+                , gameTravelStartFuel = Nothing
+                , gameTravelStartTime = Nothing
+                , gameHazardsApplied = []
                 }
             
             -- Pas planet effect toe (indien nog niet bezocht)
@@ -147,20 +218,6 @@ completeTravel route gs = case getRouteDestination (gameCurrentPlanet gs) route 
 -- =============================================================================
 -- ======= Hazard Logica =======================================================
 -- =============================================================================
-
--- Pas hazard effecten toe tijdens een route
-applyHazardsOnRoute :: GameState -> Route -> Ship -> StdGen -> (Ship, StdGen)
-applyHazardsOnRoute gs route ship rng =
-    let fromPlanet = find (\p -> planetName p == routeFrom route) (galaxyPlanets $ gameGalaxy gs)
-        toPlanet = case getRouteDestination (gameCurrentPlanet gs) route of
-            Just dest -> find (\p -> planetName p == dest) (galaxyPlanets $ gameGalaxy gs)
-            Nothing -> Nothing
-        
-        hazardsOnRoute = case (fromPlanet, toPlanet) of
-            (Just from, Just to) -> findHazardsOnRoute (planetPos from) (planetPos to) (galaxyHazards $ gameGalaxy gs)
-            _ -> []
-    
-    in foldl (\(s, r) h -> applyHazardEffect h s r) (ship, rng) hazardsOnRoute
 
 -- Vind alle hazards die een route kruisen
 findHazardsOnRoute :: Position -> Position -> [Hazard] -> [Hazard]
@@ -298,9 +355,14 @@ confirmRoute gs = case gameSelectedRoute gs of
 -- ======= Utility Functies ====================================================
 -- =============================================================================
 
--- Reset de game state (herstart missie)
+-- Reset de game state (herstart missie) - reset ook planetVisited flags
 resetGameState :: GameState -> Mission -> StdGen -> Maybe GameState
-resetGameState gs mission rng = initGameState (gameGalaxy gs) mission rng
+resetGameState gs mission rng = 
+    let galaxy = gameGalaxy gs
+        -- Reset alle planet visited flags
+        resetPlanets = map (\p -> p { planetVisited = False }) (galaxyPlanets galaxy)
+        resetGalaxy = galaxy { galaxyPlanets = resetPlanets }
+    in initGameState resetGalaxy mission rng
 
 -- Krijg de huidige missie tijd in seconden
 getRemainingTime :: GameState -> Int

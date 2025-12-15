@@ -57,7 +57,7 @@ initialAppState galaxy rng = AppState
 -- Start de game met Gloss
 runGame :: Galaxy -> StdGen -> IO ()
 runGame galaxy rng = playIO
-    (InWindow "Star Routes" (1200, 800) (100, 100))
+    (InWindow "Star Routes" (1600, 1000) (100, 100))
     backgroundColor
     60  -- FPS
     (initialAppState galaxy rng)
@@ -135,6 +135,34 @@ handleGamePlayInput (EventKey (SpecialKey KeyUp) Down _ _) appState gs
         appState { appGameState = Just (selectPreviousRoute gs) }
     | otherwise = appState
 
+handleGamePlayInput (EventKey (SpecialKey KeyDown) Down _ _) appState gs
+    | not (gameTraveling gs) =
+        appState { appGameState = Just (selectNextRoute gs) }
+    | otherwise = appState
+
+handleGamePlayInput (EventKey (SpecialKey KeyEnter) Down _ _) appState gs
+    | not (gameTraveling gs) =
+        appState { appGameState = Just (confirmRoute gs) }
+    | otherwise = appState
+
+handleGamePlayInput (EventKey (Char 'r') Down _ _) appState gs =
+    let mission = Mission
+            { missionName = ""
+            , missionStart = gameCurrentPlanet gs
+            , missionEnd = gameTargetPlanet gs
+            , missionTime = gameMissionTime gs
+            }
+        -- Vind de originele missie voor correcte start planet
+        originalMission = case filter (\m -> missionEnd m == gameTargetPlanet gs) 
+                                       (galaxyMissions $ appGalaxy appState) of
+            (m:_) -> m
+            [] -> mission
+    in case resetGameState gs originalMission (appRng appState) of
+        Just newGs -> appState
+            { appGameState = Just newGs
+            }
+        Nothing -> appState
+
 handleGamePlayInput (EventKey (SpecialKey KeyEsc) Down _ _) appState _ =
     appState
         { appMode = MissionSelectionMode
@@ -154,13 +182,17 @@ handleEndScreenInput (EventKey (SpecialKey KeyEsc) Down _ _) appState =
 handleEndScreenInput (EventKey (Char 'r') Down _ _) appState =
     case appGameState appState of
         Just gs ->
-            let mission = Mission
-                    { missionName = ""
-                    , missionStart = gameCurrentPlanet gs
-                    , missionEnd = gameTargetPlanet gs
-                    , missionTime = gameMissionTime gs
-                    }
-            in case resetGameState gs mission (appRng appState) of
+            -- Vind de originele missie
+            let originalMission = case filter (\m -> missionEnd m == gameTargetPlanet gs) 
+                                               (galaxyMissions $ appGalaxy appState) of
+                    (m:_) -> m
+                    [] -> Mission
+                        { missionName = ""
+                        , missionStart = gameCurrentPlanet gs
+                        , missionEnd = gameTargetPlanet gs
+                        , missionTime = gameMissionTime gs
+                        }
+            in case resetGameState gs originalMission (appRng appState) of
                 Just newGs -> appState
                     { appMode = GamePlayMode
                     , appGameState = Just newGs
