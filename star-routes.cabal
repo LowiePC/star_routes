@@ -1,0 +1,64 @@
+cabal-version: 2.2
+
+name:           star-routes
+version:        0.1.0.0
+author:         Author name here
+build-type:     Simple
+
+library
+  exposed-modules:
+      Lib
+      Constants
+      Types
+      Parser
+      Game.Logic
+      UI.Render
+  other-modules:
+      Paths_star_routes
+  autogen-modules:
+      Paths_star_routes
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base >=4.7 && <5,
+      gloss  >= 1.13,
+      random >= 1.2,
+      parsec >= 3.1
+  default-language: Haskell2010
+
+executable star-routes-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_star_routes
+  autogen-modules:
+      Paths_star_routes
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      star-routes,
+      base >=4.7 && <5,
+      gloss  >= 1.13,
+      random >= 1.2,
+      parsec >= 3.1
+  default-language: Haskell2010
+
+test-suite star-routes-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_star_routes
+  autogen-modules:
+      Paths_star_routes
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      star-routes,
+      base >=4.7 && <5,
+      gloss  >= 1.13,
+      random >= 1.2,
+      parsec >= 3.1,
+      HUnit >= 1.6
+  default-language: Haskell2010

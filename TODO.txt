@@ -1,0 +1,3 @@
+LOGIC
+- completetravel berekent pas achteraf hoeveel brandstof er nodig was, maar moet vooraf gebeuren
+- canAffordRoute wat als er geen enkele kan?
