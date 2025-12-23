@@ -90,6 +90,8 @@ data GameState = GameState
     , gameHazardsApplied    :: [String]   -- Hazards die al zijn toegepast tijdens deze reis
     , gameRng               :: StdGen
     , gameStatus            :: GameStatus
+    , gameTravelFuelPenalty :: Int 
+    , gameTravelTimePenalty :: Int
     } deriving (Show)
 
 data GameStatus

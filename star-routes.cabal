@@ -46,7 +46,7 @@ executable star-routes-exe
 
 test-suite star-routes-test
   type: exitcode-stdio-1.0
-  main-is: Tests.hs
+  main-is: Main.hs
   other-modules:
       Paths_star_routes
   autogen-modules:

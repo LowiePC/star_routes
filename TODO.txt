@@ -1,5 +1,0 @@
-- de fuel hazards worden niet toegepast
-- hlint toepassen
-- verslag schrijven
-- testen controleren
-- bidirectionele pijlen zijn raar

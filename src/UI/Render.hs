@@ -26,13 +26,40 @@ renderGame gs = Pictures
 -- =============================================================================
 
 -- Render de kaart met planeten, routes en hazards
+-- Render de kaart met planeten, routes en hazards
 renderMap :: GameState -> Picture
-renderMap gs = Translate (-350) 0 $ Pictures  -- Verschuif de kaart naar links
-    [ renderHazards (galaxyHazards $ gameGalaxy gs)
-    , renderRoutes gs
-    , renderPlanets gs
-    , renderShip gs
-    ]
+renderMap gs = 
+    let -- 1. Zoek de grenzen van je planeten
+        planets = galaxyPlanets $ gameGalaxy gs
+        xs = map (fst . planetPos) planets
+        ys = map (snd . planetPos) planets
+        
+        minX = if null xs then 0 else minimum xs
+        maxX = if null xs then 0 else maximum xs
+        minY = if null ys then 0 else minimum ys
+        maxY = if null ys then 0 else maximum ys
+        
+        centerX = (minX + maxX) / 2
+        centerY = (minY + maxY) / 2
+        
+        rangeX = max 1 (maxX - minX)
+        rangeY = max 1 (maxY - minY)
+        
+        -- 2. BEREKEN DE ZOOM (Scale)
+        -- We verhogen de 'budget' ruimte naar bijv. 750x700 
+        -- zodat de map groter getekend wordt.
+        scaleFactor = min 1.2 (min (750 / rangeX) (700 / rangeY))
+        
+    -- 3. DE COMPOSITIE (Lees van onder naar boven)
+    in Translate (-250) 0             -- STAP C: Verschuif het geheel naar de linkerhelft van het scherm
+       $ Scale scaleFactor scaleFactor -- STAP B: Zet alles op de juiste grootte
+       $ Translate (-centerX) (-centerY) -- STAP A: Zet het midden van je planeten-groep op (0,0)
+       $ Pictures
+        [ renderHazards (galaxyHazards $ gameGalaxy gs)
+        , renderRoutes gs
+        , renderPlanets gs
+        , renderShip gs
+        ]
 
 -- Render alle hazards met namen
 renderHazards :: [Hazard] -> Picture
